@@ -1,13 +1,12 @@
-﻿Shader "Unlit/FresnelShader"
+﻿Shader "Unlit/FresnelReflectionShader"
 {
 	Properties
 	{
 		_MainTex ("Texture", 2D) = "white" {}
-		_Bias ("Bias", Range(0, 10)) = 1
+		_Bias ("Bias", Range(0, 10)) = 0.1
 		_Scale ("Scale", Range(0, 20)) = 2
 		_Power ("Power", Range(0, 4)) = 1
 		_BaseColor("BaseColor", Color) = (0, 0, 0, 1)
-		_FresnelColor("FresnelColor", Color) = (1, 1, 1, 1)
 	}
 	SubShader
 	{
@@ -36,7 +35,9 @@
 				float2 uv : TEXCOORD0;
 				UNITY_FOG_COORDS(1)
 				float4 vertex : SV_POSITION;
-				float R : TEXCOORD1; 
+				float R : TEXCOORD1;
+				float3 reflection : TEXCOORD2;
+
 			};
 
 			sampler2D _MainTex;
@@ -46,7 +47,6 @@
 			float _Scale;
 			float _Power;
 			half4 _BaseColor;
-			half4 _FresnelColor;
 			
 			v2f vert (appdata v)
 			{
@@ -60,6 +60,8 @@
 
 				float3 I = normalize(posWorld - _WorldSpaceCameraPos.xyz); // View vector // normalize(UnityWorldSpaceViewDir(posWorld)); //
 				o.R = _Bias + _Scale * pow(1.0 + dot(I, normWorld), _Power);
+				
+				o.reflection = reflect(I, normWorld);
 
 				return o;
 			}
@@ -68,9 +70,18 @@
 			{
 				// sample the texture
 				fixed4 col = _BaseColor; //tex2D(_MainTex, i.uv.xy * _MainTex_ST.xy + _MainTex_ST.zw);
+
+				half4 reflectedData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, i.reflection);
+				half3 reflectedColor = DecodeHDR(reflectedData, unity_SpecCube0_HDR);
+
+				half3 fresnelIntensity = lerp(col, (1, 1, 1, 1), i.R);
+				half3 fresneledReflection = fresnelIntensity * reflectedColor;
+
 				// apply fog
-				UNITY_APPLY_FOG(i.fogCoord, col);
-				return lerp(col, _FresnelColor, i.R);
+				UNITY_APPLY_FOG(i.fogCoord, fresneledReflection);
+
+				return fixed4(fresneledReflection, 0);
+
 			}
 			ENDCG
 		}
