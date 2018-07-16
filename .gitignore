@@ -1,0 +1,6 @@
+.vs
+.vscode
+*.sln
+*.csproj
+[Tt]emp/
+[Ll]ibrary/
